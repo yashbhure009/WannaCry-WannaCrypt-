@@ -1,0 +1,80 @@
+# WannaCry Ransomware Simulation Lab
+## Overview
+This project demonstrates a controlled ransomware simulation in an isolated virtual lab environment. The objective was to understand how legacy vulnerabilities can be abused by ransomware to spread across systems and why timely patching and network security are critical.
+The simulation was performed strictly in a virtual environment using intentionally vulnerable systems for educational and cybersecurity research purposes.
+# Lab Environment
+## Attacker Machine
+* Operating System: Kali Linux
+* Purpose: Network enumeration, vulnerability assessment, and attack simulation
+* Tools Used:
+  * Nmap
+  * Metasploit Framework
+  * Network Analysis Utilities
+## Victim Machine
+* Operating System: Windows 7 SP1 (Vulnerable Lab Image)
+* Purpose: Simulate a legacy unpatched system susceptible to ransomware attacks
+* Test Data:
+  * Sample documents
+  * Text files
+  * Images
+  * Other non-sensitive files created specifically for testing
+# Network Configuration
+Both virtual machines were connected to the same isolated virtual network to simulate a real-world local network environment.
+The network was configured inside the virtualization platform and verified to ensure communication between the attacker and victim systems.
+This isolated setup prevented any impact on external systems.
+# Attack Simulation Workflow
+## 1. Scanning the Network and Identifying Vulnerable Systems
+The first phase involved discovering systems available on the network and identifying services exposed by the target machine.
+Activities performed:
+* Host discovery
+* Port enumeration
+* Service identification
+* Vulnerability assessment
+The target machine was identified as a Windows 7 system exposing SMB services. Further analysis indicated that the system was susceptible to a known SMB-related vulnerability that had historically been abused by WannaCry ransomware.
+### Objective
+Determine whether the target system contained known weaknesses that could allow unauthorized code execution.
+### Outcome
+The vulnerability assessment confirmed the presence of a vulnerable SMB configuration suitable for further testing within the lab environment.
+## 2. Exploiting the Vulnerability and Obtaining System Access
+After identifying the vulnerable service, a controlled exploitation phase was conducted within the isolated lab.
+The purpose of this stage was to demonstrate how attackers can leverage unpatched vulnerabilities to gain execution privileges on a target system.
+### Objective
+* Validate the vulnerability
+* Demonstrate the risk posed by unpatched systems
+* Understand the attack lifecycle used by ransomware campaigns
+### Outcome
+The simulation demonstrated how a vulnerable service can be abused to obtain a foothold on a target machine when appropriate security updates are absent.
+### Security Lessons
+* Keep operating systems updated.
+* Disable unnecessary legacy protocols.
+* Segment networks to limit lateral movement.
+* Monitor unusual SMB activity.
+## 3. Ransomware Execution and File Encryption Simulation
+The final phase simulated ransomware behavior after system compromise.
+A controlled sample was executed against test files created specifically for the experiment.
+Observed behaviors included:
+* Discovery of files
+* File encryption process
+* Modification of file accessibility
+* Display of a ransom notification
+### Objective
+Demonstrate the impact of ransomware after initial compromise.
+### Outcome
+The sample successfully encrypted the designated test files within the virtual environment, illustrating the operational impact of ransomware infections.
+# Key Findings
+* Legacy operating systems remain highly vulnerable when left unpatched.
+* SMB-based vulnerabilities can provide an initial entry point for attackers.
+* Once a system is compromised, ransomware can rapidly impact data availability.
+* Proper patch management significantly reduces attack surface.
+* Network segmentation and endpoint protection can help contain ransomware outbreaks.
+# Defensive Recommendations
+1. Apply security updates regularly.
+2. Disable SMBv1 where possible.
+3. Maintain offline backups.
+4. Implement network segmentation.
+5. Deploy endpoint detection and response (EDR) solutions.
+6. Monitor network traffic for anomalous SMB activity.
+7. Conduct regular vulnerability assessments.
+# Disclaimer
+
+This project was conducted exclusively within an isolated virtual laboratory environment for educational and cybersecurity research purposes. No unauthorized systems, networks, or data were targeted. The content is intended to promote security awareness, vulnerability mitigation, and defensive cybersecurity practices.
